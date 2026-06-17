@@ -1,0 +1,28 @@
+services:
+  servidor:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    networks:
+      - rede-teste
+    tty: true
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ../:/app
+
+  cliente:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    networks:
+      - rede-teste
+    tty: true
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - ../:/app
+
+networks:
+  rede-teste:
+    driver: bridge
