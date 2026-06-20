@@ -8,8 +8,9 @@ import sys
 sys.path.insert(0, '/app')
 
 from app.rudp.rudp import criar_pacote
-from app.common.config import MATRICULA, NOME
+from app.common.config import MATRICULA, NOME, WEB_DOMAIN
 from app.common.utils import gerar_auth
+from app.dns.client_dns import resolver_nome
 
 def salvar_log(tempo, total_bytes, cenario):
 
@@ -38,7 +39,7 @@ def salvar_log(tempo, total_bytes, cenario):
             cenario
         ])
 
-SERVER_HOST = "servidor"
+SERVER_HOST = ""
 SERVER_PORT = 6000
 
 BUFFER_SIZE = 1024
@@ -53,6 +54,20 @@ LOG_FILE = f"/app/data/logs/rudp_cenario_{CENARIO}.csv"
 client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 client.settimeout(TIMEOUT)
+
+ip_servidor, tempo_dns, status_dns = resolver_nome(WEB_DOMAIN)
+
+print(f"DNS status: {status_dns}")
+print(f"DNS dominio: {WEB_DOMAIN}")
+print(f"DNS IP: {ip_servidor if ip_servidor else '-'}")
+print(f"DNS tempo: {tempo_dns:.4f}s")
+
+if status_dns != "OK":
+    print("[CLIENTE] Falha na resolucao DNS")
+    client.close()
+    exit(1)
+
+SERVER_HOST = ip_servidor
 
 seq_num = 1
 

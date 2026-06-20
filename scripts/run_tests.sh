@@ -10,6 +10,9 @@ echo "Cenário: $CENARIO"
 echo "Repetições: $REPETICOES"
 echo "================================="
 
+echo "Garantindo servico DNS ativo..."
+docker compose up -d dns
+
 # aplica tc
 docker compose exec cliente bash -c "/app/scripts/setup_tc.sh $CENARIO"
 

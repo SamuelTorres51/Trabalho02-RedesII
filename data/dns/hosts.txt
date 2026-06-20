@@ -1,0 +1,2 @@
+# dominio ip
+web.local 172.28.0.10

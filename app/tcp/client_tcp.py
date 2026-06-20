@@ -9,6 +9,8 @@ sys.path.insert(0, '/app')
 
 from app.common.config import SERVER_HOST, SERVER_PORT, BUFFER_SIZE, MATRICULA, NOME
 from app.common.utils import gerar_auth
+from app.dns.client_dns import resolver_nome
+from app.common.config import WEB_DOMAIN
 
 INPUT_FILE = "/app/data/input/arquivo_envio.bin"
 CENARIO = sys.argv[1]
@@ -55,8 +57,19 @@ def salvar_log(tempo, bytes_enviados, cenario):
         ])
 
 def start_client():
+    ip_servidor, tempo_dns, status_dns = resolver_nome(WEB_DOMAIN)
+
+    print(f"DNS status: {status_dns}")
+    print(f"DNS dominio: {WEB_DOMAIN}")
+    print(f"DNS IP: {ip_servidor if ip_servidor else '-'}")
+    print(f"DNS tempo: {tempo_dns:.4f}s")
+
+    if status_dns != "OK":
+        print("Falha na resolucao DNS")
+        return
+
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client.connect((SERVER_HOST, SERVER_PORT))
+    client.connect((ip_servidor, SERVER_PORT))
 
     client.sendall(montar_mensagem("AUTH"))
 

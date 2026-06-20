@@ -3,26 +3,43 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    networks:
-      - rede-teste
     tty: true
     cap_add:
       - NET_ADMIN
     volumes:
       - ../:/app
+    networks:
+      rede-teste:
+        ipv4_address: 172.28.0.10
 
   cliente:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    networks:
-      - rede-teste
     tty: true
     cap_add:
       - NET_ADMIN
     volumes:
       - ../:/app
+    networks:
+      rede-teste:
+        ipv4_address: 172.28.0.11
+
+  dns:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    tty: true
+    volumes:
+      - ../:/app
+    command: bash -c "cd /app && python3 app/dns/server_dns.py"
+    networks:
+      rede-teste:
+        ipv4_address: 172.28.0.53
 
 networks:
   rede-teste:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
