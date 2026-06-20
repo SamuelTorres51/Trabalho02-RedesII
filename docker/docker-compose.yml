@@ -1,5 +1,17 @@
 services:
-  servidor:
+  dns:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    tty: true
+    volumes:
+      - ../:/app
+    command: bash -c "cd /app && python3 app/dns/server_dns.py"
+    networks:
+      rede-teste:
+        ipv4_address: 172.28.0.53
+
+  servidor_web:
     build:
       context: ..
       dockerfile: docker/Dockerfile
@@ -8,33 +20,10 @@ services:
       - NET_ADMIN
     volumes:
       - ../:/app
+    command: bash -c "cd /app && python3 app/http/server_http.py"
     networks:
       rede-teste:
         ipv4_address: 172.28.0.10
-
-  web_tcp:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    tty: true
-    volumes:
-      - ../:/app
-    command: bash -c "cd /app && python3 app/http/server_http_tcp.py"
-    networks:
-      rede-teste:
-        ipv4_address: 172.28.0.20
-
-  web_rudp:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    tty: true
-    volumes:
-      - ../:/app
-    command: bash -c "cd /app && python3 app/http/server_http_rudp.py"
-    networks:
-      rede-teste:
-        ipv4_address: 172.28.0.21
 
   cliente:
     build:
@@ -48,18 +37,6 @@ services:
     networks:
       rede-teste:
         ipv4_address: 172.28.0.11
-
-  dns:
-    build:
-      context: ..
-      dockerfile: docker/Dockerfile
-    tty: true
-    volumes:
-      - ../:/app
-    command: bash -c "cd /app && python3 app/dns/server_dns.py"
-    networks:
-      rede-teste:
-        ipv4_address: 172.28.0.53
 
 networks:
   rede-teste:
