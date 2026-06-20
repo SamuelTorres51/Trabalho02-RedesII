@@ -12,6 +12,30 @@ services:
       rede-teste:
         ipv4_address: 172.28.0.10
 
+  web_tcp:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    tty: true
+    volumes:
+      - ../:/app
+    command: bash -c "cd /app && python3 app/http/server_http_tcp.py"
+    networks:
+      rede-teste:
+        ipv4_address: 172.28.0.20
+
+  web_rudp:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    tty: true
+    volumes:
+      - ../:/app
+    command: bash -c "cd /app && python3 app/http/server_http_rudp.py"
+    networks:
+      rede-teste:
+        ipv4_address: 172.28.0.21
+
   cliente:
     build:
       context: ..

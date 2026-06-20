@@ -1,2 +1,3 @@
 # dominio ip
-web.local 172.28.0.10
+web.local 172.28.0.20
+web-rudp.local 172.28.0.21

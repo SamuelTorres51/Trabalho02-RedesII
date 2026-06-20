@@ -5,7 +5,7 @@ import os
 
 sys.path.insert(0, '/app')
 
-from app.common.config import WEB_DOMAIN
+from app.common.config import WEB_DOMAIN_RUDP
 from app.dns.client_dns import resolver_nome
 from app.common.utils import gerar_auth
 from app.rudp.rudp import criar_pacote, ler_pacote, calcular_checksum
@@ -22,7 +22,7 @@ def salvar_arquivo_saida(nome_recurso, dados):
     return caminho
 
 def start_client(recurso='/'):
-    dominio = WEB_DOMAIN
+    dominio = WEB_DOMAIN_RUDP
     ip_servidor, tempo_dns, status_dns = resolver_nome(dominio)
 
     print(f'DNS status: {status_dns}')
