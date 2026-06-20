@@ -33,11 +33,15 @@ do
     echo "Execução $i"
     echo "==============================="
 
-    # executa cliente
-    docker compose exec cliente bash -c "
-        cd /app &&
-        python3 app/http/client_http.py $PROTOCOLO /
-    "
+    for ARQUIVO in arquivo_100kb.bin arquivo_500kb.bin arquivo_1mb.bin
+    do
+        echo "Enviando $ARQUIVO"
+
+        docker compose exec cliente bash -c "
+            cd /app &&
+            python3 app/http/client_http.py $PROTOCOLO $CENARIO /$ARQUIVO
+        "
+    done
 
     sleep 2
 

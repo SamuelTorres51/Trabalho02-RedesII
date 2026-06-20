@@ -1,0 +1,2 @@
+cenario,recurso,tempo_dns,tempo_total,bytes,throughput,status_http
+A,/arquivo_100kb.bin,0.0167,0.0592,102400,1731157.57,200 OK

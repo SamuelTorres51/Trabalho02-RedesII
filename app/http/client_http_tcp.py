@@ -8,6 +8,7 @@ sys.path.insert(0, '/app')
 
 from app.common.config import HTTP_PORT, WEB_DOMAIN
 from app.dns.client_dns import resolver_nome
+from app.http.metrics import salvar_log_http
 
 BUFFER_SIZE = 4096
 
@@ -18,7 +19,7 @@ def salvar_arquivo_saida(nome_recurso, dados):
         f.write(dados)
     return caminho
 
-def start_client(recurso='/'):
+def start_client(cenario='A', recurso='/'):
     dominio = WEB_DOMAIN
     ip_servidor, tempo_dns, status_dns = resolver_nome(dominio)
 
@@ -79,16 +80,21 @@ def start_client(recurso='/'):
             body += chunk
 
     fim = time.time()
-    tempo_total = fim - inicio
+    tempo_http = fim - inicio
+    tempo_total = tempo_http + tempo_dns
 
     caminho = salvar_arquivo_saida(recurso.strip('/'), body)
+    arquivo_log = salvar_log_http('tcp', cenario, recurso, tempo_dns, tempo_total, len(body), status)
 
     print(f'Status HTTP: {status}')
+    print(f'Tempo HTTP: {tempo_http:.4f}s')
     print(f'Tempo total (incluindo DNS): {tempo_total:.4f}s')
     print(f'Arquivo salvo em: {caminho}')
+    print(f'Log salvo em: {arquivo_log}')
 
     client.close()
 
 if __name__ == '__main__':
-    recurso = sys.argv[1] if len(sys.argv) > 1 else '/'
-    start_client(recurso)
+    cenario = sys.argv[1] if len(sys.argv) > 1 else 'A'
+    recurso = sys.argv[2] if len(sys.argv) > 2 else '/'
+    start_client(cenario, recurso)

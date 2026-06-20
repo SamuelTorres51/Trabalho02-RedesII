@@ -9,6 +9,7 @@ from app.common.config import WEB_DOMAIN_RUDP
 from app.dns.client_dns import resolver_nome
 from app.common.utils import gerar_auth
 from app.rudp.rudp import criar_pacote, ler_pacote, calcular_checksum
+from app.http.metrics import salvar_log_http
 
 BUFFER_SIZE = 2048
 TIMEOUT = 0.3
@@ -21,7 +22,7 @@ def salvar_arquivo_saida(nome_recurso, dados):
         f.write(dados)
     return caminho
 
-def start_client(recurso='/'):
+def start_client(cenario='A', recurso='/'):
     dominio = WEB_DOMAIN_RUDP
     ip_servidor, tempo_dns, status_dns = resolver_nome(dominio)
 
@@ -56,6 +57,8 @@ def start_client(recurso='/'):
         print('[CLIENTE] Falha na autenticacao')
         client.close()
         return
+
+    inicio = time.time()
 
     # enviar request
     path = recurso if recurso.startswith('/') else f'/{recurso}'
@@ -122,11 +125,20 @@ def start_client(recurso='/'):
             ack = f'ACK:{seq_num}'
             client.sendto(ack.encode(), (ip_servidor, 6000))
 
+    fim = time.time()
+    tempo_http = fim - inicio
+    tempo_total = tempo_dns + tempo_http
+
     caminho = salvar_arquivo_saida(recurso.strip('/'), corpo)
+    arquivo_log = salvar_log_http('rudp', cenario, recurso, tempo_dns, tempo_total, len(corpo), '200 OK')
     print(f'Arquivo salvo em: {caminho}')
+    print(f'Tempo HTTP: {tempo_http:.4f}s')
+    print(f'Tempo total (incluindo DNS): {tempo_total:.4f}s')
+    print(f'Log salvo em: {arquivo_log}')
 
     client.close()
 
 if __name__ == '__main__':
-    recurso = sys.argv[1] if len(sys.argv) > 1 else '/'
-    start_client(recurso)
+    cenario = sys.argv[1] if len(sys.argv) > 1 else 'A'
+    recurso = sys.argv[2] if len(sys.argv) > 2 else '/'
+    start_client(cenario, recurso)

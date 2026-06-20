@@ -7,17 +7,18 @@ from app.http.client_http_rudp import start_client as start_rudp_client
 
 
 def main():
-    if len(sys.argv) < 2:
-        print('Uso: python3 app/http/client_http.py <tcp|rudp> [recurso]')
+    if len(sys.argv) < 3:
+        print('Uso: python3 app/http/client_http.py <tcp|rudp> <cenario> [recurso]')
         sys.exit(1)
 
     modo = sys.argv[1].lower()
-    recurso = sys.argv[2] if len(sys.argv) > 2 else '/'
+    cenario = sys.argv[2]
+    recurso = sys.argv[3] if len(sys.argv) > 3 else '/'
 
     if modo == 'tcp':
-        start_tcp_client(recurso)
+        start_tcp_client(cenario, recurso)
     elif modo == 'rudp':
-        start_rudp_client(recurso)
+        start_rudp_client(cenario, recurso)
     else:
         print('Modo invalido. Use tcp ou rudp.')
         sys.exit(1)

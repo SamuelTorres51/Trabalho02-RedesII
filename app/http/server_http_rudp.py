@@ -48,6 +48,7 @@ def enviar_com_retransmissoes(sock, addr, auth_token, payload):
     seq = 1
     offset = 0
     tamanho = len(payload)
+    timeout_anterior = sock.gettimeout()
 
     while offset < tamanho:
         chunk = payload[offset:offset + 1024]
@@ -70,6 +71,7 @@ def enviar_com_retransmissoes(sock, addr, auth_token, payload):
                 tentativas += 1
 
         if not ack_recebido:
+            sock.settimeout(timeout_anterior)
             print('[R-HTTP] Falha ao enviar pacote seq=', seq)
             return False
 
@@ -92,17 +94,22 @@ def enviar_com_retransmissoes(sock, addr, auth_token, payload):
         except socket.timeout:
             tentativas += 1
 
+    sock.settimeout(timeout_anterior)
     return fin_ack
 
 
 def start_server():
     server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server.bind((HOST, PORT))
+    server.settimeout(None)
 
     print(f'[R-HTTP] Servidor R-UDP escutando em {HOST}:{PORT}')
 
     while True:
-        packet, addr = server.recvfrom(BUFFER_SIZE)
+        try:
+            packet, addr = server.recvfrom(BUFFER_SIZE)
+        except socket.timeout:
+            continue
         seq_num, tamanho, checksum, auth_hash, dados = ler_pacote(packet)
 
         if auth_hash != EXPECTED_AUTH:

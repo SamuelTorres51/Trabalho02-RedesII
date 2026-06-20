@@ -7,6 +7,7 @@ DNS_PORT = 5353
 WEB_DOMAIN = "web.local"
 WEB_DOMAIN_RUDP = "web-rudp.local"
 HTTP_PORT = 8080
+HTTP_LOG_DIR = "/app/data/logs"
 
 MATRICULA = "20249014475"
 NOME = "SAMUEL"
