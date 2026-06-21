@@ -14,7 +14,7 @@ BUFFER_SIZE = 4096
 
 def salvar_arquivo_saida(nome_recurso, dados):
     os.makedirs('/app/data/output', exist_ok=True)
-    caminho = f'/app/data/output/http_{nome_recurso.replace("/","_")}'
+    caminho = f'/app/data/output/http_tcp_{nome_recurso.replace("/","_")}'
     with open(caminho, 'wb') as f:
         f.write(dados)
     return caminho
