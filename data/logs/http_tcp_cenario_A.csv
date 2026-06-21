@@ -1,2 +1,5 @@
 cenario,recurso,tempo_dns,tempo_total,bytes,throughput,status_http
 A,/arquivo_100kb.bin,0.0167,0.0592,102400,1731157.57,200 OK
+A,/arquivo_100kb.bin,0.0289,0.0749,102400,1367031.62,200 OK
+A,/arquivo_500kb.bin,0.0123,0.1385,512000,3696115.3,200 OK
+A,/arquivo_1mb.bin,0.0121,0.2822,1048576,3715322.55,200 OK
