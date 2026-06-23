@@ -6,7 +6,7 @@ import os
 
 sys.path.insert(0, '/app')
 
-from app.common.config import WEB_DOMAIN_RUDP
+from app.common.config import WEB_DOMAIN_RUDP, MATRICULA, NOME
 from app.dns.client_dns import resolver_nome
 from app.common.utils import gerar_auth
 from app.rudp.rudp import criar_pacote, ler_pacote, calcular_checksum
@@ -30,6 +30,32 @@ def mensagem_ack_valida(data, seq_esperado):
         return False
 
 
+def extrair_status_http(resposta_bytes):
+    if not resposta_bytes:
+        return ''
+    status_line = resposta_bytes.split(b'\r\n', 1)[0].decode(errors='replace')
+    partes = status_line.split()
+    return ' '.join(partes[1:]) if len(partes) > 1 else ''
+
+
+def transferencia_ok(status_http, fin_recebido):
+    return fin_recebido and status_http.startswith('200')
+
+
+def registrar_resultado(cenario, recurso, tempo_dns, tempo_http, corpo, status_http, sucesso):
+    tempo_total = tempo_dns + tempo_http
+    return salvar_log_http(
+        'rudp',
+        cenario,
+        recurso,
+        tempo_dns,
+        tempo_total,
+        len(corpo),
+        status_http,
+        sucesso=sucesso,
+    )
+
+
 def salvar_arquivo_saida(nome_recurso, dados):
     os.makedirs('/app/data/output', exist_ok=True)
     caminho = f'/app/data/output/http_rudp_{nome_recurso.replace("/","_")}'
@@ -48,27 +74,26 @@ def start_client(cenario='A', recurso='/'):
 
     if status_dns != 'OK':
         print('[CLIENTE] Falha na resolucao DNS')
+        arquivo_log = salvar_log_http(
+            'rudp', cenario, recurso, tempo_dns, tempo_dns, 0, 'ERRO:DNS', sucesso=False
+        )
+        print(f'Log salvo em: {arquivo_log}')
         return
 
     client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     client.settimeout(TIMEOUT)
 
-    AUTH_HASH = gerar_auth('20249014475','SAMUEL')
+    AUTH_HASH = gerar_auth(MATRICULA, NOME)
     AUTH_TOKEN = f'X-Custom-Auth:{AUTH_HASH}'
 
-    # handshake AUTH
     auth_packet = criar_pacote(seq_num=0, dados=b'AUTH', auth_hash=AUTH_TOKEN)
 
     auth_recebido = False
     tentativas = 0
 
-
     while tentativas < MAX_TENTATIVAS and not auth_recebido:
-
         try:
-
             client.sendto(auth_packet, (ip_servidor, 6000))
-
             auth_response, _ = client.recvfrom(1024)
 
             try:
@@ -82,24 +107,26 @@ def start_client(cenario='A', recurso='/'):
 
             if resposta_auth == 'AUTH-OK':
                 auth_recebido = True
+            else:
+                tentativas += 1
 
         except socket.timeout:
-
             tentativas += 1
-
             print(f'[CLIENTE] Timeout AUTH ({tentativas}/{MAX_TENTATIVAS})')
-        
+
     if not auth_recebido:
         print('[CLIENTE] Falha na autenticacao')
         client.close()
+        arquivo_log = salvar_log_http(
+            'rudp', cenario, recurso, tempo_dns, tempo_dns, 0, 'ERRO:AUTH', sucesso=False
+        )
+        print(f'Log salvo em: {arquivo_log}')
         return
 
     inicio = time.time()
 
-    # enviar request
     path = recurso if recurso.startswith('/') else f'/{recurso}'
     request = f'GET {path} HTTP/1.1\r\nHost: {dominio}\r\n\r\n'.encode()
-
     packet = criar_pacote(seq_num=1, dados=request, auth_hash=AUTH_TOKEN)
 
     tentativas = 0
@@ -123,12 +150,24 @@ def start_client(cenario='A', recurso='/'):
     if not ack_recebido:
         print('[CLIENTE] Falha no envio do request')
         client.close()
+        tempo_http = time.time() - inicio
+        arquivo_log = salvar_log_http(
+            'rudp',
+            cenario,
+            recurso,
+            tempo_dns,
+            tempo_dns + tempo_http,
+            0,
+            'ERRO:REQUEST',
+            sucesso=False,
+        )
+        print(f'Log salvo em: {arquivo_log}')
         return
 
-    # receber resposta
     expected_seq = 1
     corpo = b''
-
+    fin_recebido = False
+    encerrado_por_timeout = False
 
     timeouts_consecutivos = 0
     MAX_TIMEOUTS_RESPOSTA = 15
@@ -143,6 +182,7 @@ def start_client(cenario='A', recurso='/'):
             )
             if timeouts_consecutivos >= MAX_TIMEOUTS_RESPOSTA:
                 print('[CLIENTE] Encerrando por excesso de timeouts')
+                encerrado_por_timeout = True
                 break
             if expected_seq > 1:
                 ultimo_ack = f'ACK:{expected_seq - 1}'
@@ -161,6 +201,7 @@ def start_client(cenario='A', recurso='/'):
 
         if dados == b'FIN':
             client.sendto(b'FIN-ACK', (ip_servidor, 6000))
+            fin_recebido = True
             print('[CLIENTE] FIN recebido, encerrando')
             break
 
@@ -181,13 +222,25 @@ def start_client(cenario='A', recurso='/'):
 
     fim = time.time()
     tempo_http = fim - inicio
-    tempo_total = tempo_dns + tempo_http
 
+    if encerrado_por_timeout:
+        status_http = 'ERRO:TIMEOUT'
+    elif not fin_recebido:
+        status_http = 'ERRO:TRANSFERENCIA_INCOMPLETA'
+    else:
+        status_http = extrair_status_http(corpo) or 'ERRO:RESPOSTA_INVALIDA'
+
+    sucesso = transferencia_ok(status_http, fin_recebido)
     caminho = salvar_arquivo_saida(recurso.strip('/'), corpo)
-    arquivo_log = salvar_log_http('rudp', cenario, recurso, tempo_dns, tempo_total, len(corpo), '200 OK')
+    arquivo_log = registrar_resultado(
+        cenario, recurso, tempo_dns, tempo_http, corpo, status_http, sucesso
+    )
+
+    print(f'Status HTTP: {status_http}')
+    print(f'Sucesso: {"sim" if sucesso else "nao"}')
     print(f'Arquivo salvo em: {caminho}')
     print(f'Tempo HTTP: {tempo_http:.4f}s')
-    print(f'Tempo total (incluindo DNS): {tempo_total:.4f}s')
+    print(f'Tempo total (incluindo DNS): {tempo_dns + tempo_http:.4f}s')
     print(f'Log salvo em: {arquivo_log}')
 
     client.close()

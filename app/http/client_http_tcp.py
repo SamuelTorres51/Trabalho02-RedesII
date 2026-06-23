@@ -3,7 +3,6 @@ import sys
 import time
 import os
 
-# Adiciona /app ao path para imports funcionarem no Docker
 sys.path.insert(0, '/app')
 
 from app.common.config import HTTP_PORT, WEB_DOMAIN
@@ -19,6 +18,13 @@ def salvar_arquivo_saida(nome_recurso, dados):
         f.write(dados)
     return caminho
 
+def transferencia_ok(status, body, content_length):
+    if not status.startswith('200'):
+        return False
+    if content_length is None:
+        return len(body) > 0
+    return len(body) >= content_length
+
 def start_client(cenario='A', recurso='/'):
     dominio = WEB_DOMAIN
     ip_servidor, tempo_dns, status_dns = resolver_nome(dominio)
@@ -30,6 +36,10 @@ def start_client(cenario='A', recurso='/'):
 
     if status_dns != 'OK':
         print('Falha na resolucao DNS')
+        arquivo_log = salvar_log_http(
+            'tcp', cenario, recurso, tempo_dns, tempo_dns, 0, 'ERRO:DNS', sucesso=False
+        )
+        print(f'Log salvo em: {arquivo_log}')
         return
 
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -41,7 +51,6 @@ def start_client(cenario='A', recurso='/'):
     inicio = time.time()
     client.sendall(request.encode())
 
-    # ler cabecalhos
     data = b''
     while b'\r\n\r\n' not in data:
         chunk = client.recv(BUFFER_SIZE)
@@ -49,16 +58,29 @@ def start_client(cenario='A', recurso='/'):
             break
         data += chunk
 
+    tempo_http = time.time() - inicio
+
     if not data:
         print('Sem resposta')
         client.close()
+        arquivo_log = salvar_log_http(
+            'tcp',
+            cenario,
+            recurso,
+            tempo_dns,
+            tempo_dns + tempo_http,
+            0,
+            'ERRO:SEM_RESPOSTA',
+            sucesso=False,
+        )
+        print(f'Log salvo em: {arquivo_log}')
         return
 
     header_bytes, corpo = data.split(b'\r\n\r\n', 1)
     headers = header_bytes.decode(errors='replace').split('\r\n')
     status_line = headers[0]
     partes = status_line.split()
-    status = ' '.join(partes[1:]) if len(partes) > 1 else ''
+    status = ' '.join(partes[1:]) if len(partes) > 1 else 'ERRO:RESPOSTA_INVALIDA'
 
     content_length = None
     for h in headers[1:]:
@@ -67,11 +89,10 @@ def start_client(cenario='A', recurso='/'):
             if k.strip().lower() == 'content-length':
                 try:
                     content_length = int(v.strip())
-                except:
+                except ValueError:
                     content_length = None
 
     body = corpo
-    # receber restante
     if content_length is not None:
         while len(body) < content_length:
             chunk = client.recv(BUFFER_SIZE)
@@ -83,10 +104,17 @@ def start_client(cenario='A', recurso='/'):
     tempo_http = fim - inicio
     tempo_total = tempo_http + tempo_dns
 
+    if content_length is not None and len(body) < content_length:
+        status = 'ERRO:TRANSFERENCIA_INCOMPLETA'
+
+    sucesso = transferencia_ok(status, body, content_length)
     caminho = salvar_arquivo_saida(recurso.strip('/'), body)
-    arquivo_log = salvar_log_http('tcp', cenario, recurso, tempo_dns, tempo_total, len(body), status)
+    arquivo_log = salvar_log_http(
+        'tcp', cenario, recurso, tempo_dns, tempo_total, len(body), status, sucesso=sucesso
+    )
 
     print(f'Status HTTP: {status}')
+    print(f'Sucesso: {"sim" if sucesso else "nao"}')
     print(f'Tempo HTTP: {tempo_http:.4f}s')
     print(f'Tempo total (incluindo DNS): {tempo_total:.4f}s')
     print(f'Arquivo salvo em: {caminho}')

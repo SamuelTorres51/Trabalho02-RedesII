@@ -60,7 +60,18 @@ def carregar_dados() -> pd.DataFrame:
     dados["cenario"] = pd.Categorical(dados["cenario"], categories=["A", "B", "C"], ordered=True)
     dados["tamanho_label"] = pd.Categorical(dados["tamanho_label"], ordered=True)
     dados["throughput_mbps"] = dados["throughput"] * 8 / 1_000_000
+    dados["sucesso"] = _normalizar_sucesso(dados)
+    dados["erro"] = 1 - dados["sucesso"]
     return dados
+
+
+def _normalizar_sucesso(dados: pd.DataFrame) -> pd.Series:
+    if "sucesso" in dados.columns:
+        return dados["sucesso"].fillna(0).astype(int).clip(0, 1)
+
+    status = dados["status_http"].fillna("").astype(str)
+    return status.str.startswith("200").astype(int)
+
 
 def resumo_estatistico(dados: pd.DataFrame) -> pd.DataFrame:
     resumo = (
@@ -86,14 +97,36 @@ def resumo_estatistico(dados: pd.DataFrame) -> pd.DataFrame:
             throughput_mbps_desvio=("throughput_mbps", "std"),
             throughput_mbps_min=("throughput_mbps", "min"),
             throughput_mbps_max=("throughput_mbps", "max"),
+            taxa_erro_media=("erro", "mean"),
+            taxa_erro_desvio=("erro", "std"),
+            taxa_erro_min=("erro", "min"),
+            taxa_erro_max=("erro", "max"),
+            erros_total=("erro", "sum"),
+            sucessos_total=("sucesso", "sum"),
             execucoes=("tempo_total", "count"),
         )
         .reset_index()
         .sort_values(["tamanho_bytes", "cenario", "protocolo"])
     )
 
+    resumo["taxa_erro_pct"] = resumo["taxa_erro_media"] * 100
+    resumo["taxa_erro_desvio_pct"] = resumo["taxa_erro_desvio"].fillna(0) * 100
     resumo.to_csv(LOG_DIR / "resumo_estatistico_http.csv", index=False)
     return resumo
+
+
+def validar_execucoes(resumo: pd.DataFrame, minimo: int = 10) -> None:
+    pendentes = resumo[resumo["execucoes"] < minimo]
+    if pendentes.empty:
+        print(f"Todas as combinações possuem pelo menos {minimo} execuções.")
+        return
+
+    print(f"Atenção: combinações com menos de {minimo} execuções:")
+    for _, linha in pendentes.iterrows():
+        print(
+            f"  - {linha['protocolo']} / cenário {linha['cenario']} / "
+            f"{linha['tamanho_label']}: {int(linha['execucoes'])} execuções"
+        )
 
 def _ordenar_tamanhos(resumo: pd.DataFrame) -> list[str]:
     base = resumo[["tamanho_label", "tamanho_bytes"]].drop_duplicates().sort_values("tamanho_bytes")
@@ -199,6 +232,7 @@ def grafico_por_cenario(resumo: pd.DataFrame, valor: str, erro: str, titulo: str
 def main() -> None:
     dados = carregar_dados()
     resumo = resumo_estatistico(dados)
+    validar_execucoes(resumo)
 
     grafico_por_tamanho(
         resumo,
@@ -234,6 +268,24 @@ def main() -> None:
         titulo="Tempo total médio por cenário",
         ylabel="Tempo total (s)",
         arquivo="tempo_total_por_cenario.png",
+    )
+
+    grafico_por_tamanho(
+        resumo,
+        valor="taxa_erro_pct",
+        erro="taxa_erro_desvio_pct",
+        titulo="Taxa de erro por tamanho de arquivo",
+        ylabel="Taxa de erro (%)",
+        arquivo="taxa_erro_por_tamanho.png",
+    )
+
+    grafico_por_cenario(
+        resumo,
+        valor="taxa_erro_pct",
+        erro="taxa_erro_desvio_pct",
+        titulo="Taxa de erro por cenário",
+        ylabel="Taxa de erro (%)",
+        arquivo="taxa_erro_por_cenario.png",
     )
 
     print(f"Resumo salvo em: {LOG_DIR / 'resumo_estatistico_http.csv'}")
