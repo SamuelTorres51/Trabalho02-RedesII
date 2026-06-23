@@ -18,7 +18,7 @@ docker compose exec cliente bash -c "/app/scripts/setup_tc.sh $CENARIO"
 
 echo "Iniciando tcpdump..."
 
-docker compose exec -d servidor_web bash -c "
+docker compose exec -d cliente bash -c "
     tcpdump -i eth0 -w /app/data/pcap/${PROTOCOLO}_cenario_${CENARIO}.pcap
 "
 
