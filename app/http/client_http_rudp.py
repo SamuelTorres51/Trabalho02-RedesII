@@ -12,7 +12,7 @@ from app.rudp.rudp import criar_pacote, ler_pacote, calcular_checksum
 from app.http.metrics import salvar_log_http
 
 BUFFER_SIZE = 2048
-TIMEOUT = 0.3
+TIMEOUT = 1.0
 MAX_TENTATIVAS = 5
 
 def salvar_arquivo_saida(nome_recurso, dados):
@@ -43,17 +43,31 @@ def start_client(cenario='A', recurso='/'):
 
     # handshake AUTH
     auth_packet = criar_pacote(seq_num=0, dados=b'AUTH', auth_hash=AUTH_TOKEN)
-    client.sendto(auth_packet, (ip_servidor, 6000))
 
-    try:
-        auth_response, _ = client.recvfrom(1024)
-        print('[CLIENTE] Resposta AUTH:', auth_response.decode())
-    except socket.timeout:
-        print('[CLIENTE] Timeout AUTH')
-        client.close()
-        return
+    auth_recebido = False
+    tentativas = 0
 
-    if auth_response.decode() != 'AUTH-OK':
+
+    while tentativas < MAX_TENTATIVAS and not auth_recebido:
+
+        try:
+
+            client.sendto(auth_packet, (ip_servidor, 6000))
+
+            auth_response, _ = client.recvfrom(1024)
+
+            print('[CLIENTE] Resposta AUTH:', auth_response.decode())
+
+            if auth_response.decode() == 'AUTH-OK':
+                auth_recebido = True
+
+        except socket.timeout:
+
+            tentativas += 1
+
+            print(f'[CLIENTE] Timeout AUTH ({tentativas}/{MAX_TENTATIVAS})')
+        
+    if not auth_recebido:
         print('[CLIENTE] Falha na autenticacao')
         client.close()
         return
@@ -78,6 +92,9 @@ def start_client(cenario='A', recurso='/'):
             print('[CLIENTE] ACK recebido:', ack_msg)
             if ack_msg == 'ACK:1':
                 ack_recebido = True
+            else:
+                print('[CLIENTE] Ignorando mensagem inesperada')
+                continue    
         except socket.timeout:
             tentativas += 1
             print('[CLIENTE] Timeout request')
@@ -91,12 +108,32 @@ def start_client(cenario='A', recurso='/'):
     expected_seq = 1
     corpo = b''
 
+
+    timeouts_consecutivos = 0
+    MAX_TIMEOUTS_RESPOSTA = 5
     while True:
         try:
+
             packet, _ = client.recvfrom(BUFFER_SIZE)
+
+            timeouts_consecutivos = 0
+
         except socket.timeout:
-            print('[CLIENTE] Timeout recebendo resposta')
-            break
+
+            timeouts_consecutivos += 1
+
+
+            print(
+            f'[CLIENTE] Timeout recebendo resposta '
+            f'({timeouts_consecutivos}/{MAX_TIMEOUTS_RESPOSTA})'
+            )
+
+            if timeouts_consecutivos >= MAX_TIMEOUTS_RESPOSTA:
+
+                print('[CLIENTE] Encerrando por excesso de timeouts')
+                break
+
+            continue
 
         seq_num, tamanho, checksum, auth_hash, dados = ler_pacote(packet)
 

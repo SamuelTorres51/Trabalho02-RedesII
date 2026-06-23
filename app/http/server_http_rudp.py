@@ -12,7 +12,7 @@ from app.rudp.rudp import ler_pacote, criar_pacote, calcular_checksum
 HOST = '0.0.0.0'
 PORT = 6000
 BUFFER_SIZE = 2048
-TIMEOUT = 0.3
+TIMEOUT = 1.0
 MAX_TENTATIVAS = 5
 WWW_DIR = '/app/data/www'
 
@@ -62,7 +62,11 @@ def enviar_com_retransmissoes(sock, addr, auth_token, payload):
                 sock.sendto(packet, addr)
                 sock.settimeout(TIMEOUT)
                 ack, _ = sock.recvfrom(1024)
-                ack_msg = ack.decode()
+                try:
+                    ack_msg = ack.decode()
+                except UnicodeDecodeError:
+                    print('[R-HTTP] Pacote binario recebido durante espera de ACK')
+                    continue
                 if ack_msg == f'ACK:{seq}':
                     ack_recebido = True
                 else:
@@ -88,7 +92,11 @@ def enviar_com_retransmissoes(sock, addr, auth_token, payload):
             sock.sendto(fin_packet, addr)
             sock.settimeout(TIMEOUT)
             ack, _ = sock.recvfrom(1024)
-            ack_msg = ack.decode()
+            try:
+                ack_msg = ack.decode()
+            except UnicodeDecodeError:
+                print('[R-HTTP] Pacote binario recebido durante espera de FIN-ACK')
+                continue
             if ack_msg == 'FIN-ACK':
                 fin_ack = True
         except socket.timeout:
