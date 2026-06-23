@@ -1,4 +1,5 @@
 import socket
+import struct
 import sys
 import time
 import os
@@ -12,8 +13,22 @@ from app.rudp.rudp import criar_pacote, ler_pacote, calcular_checksum
 from app.http.metrics import salvar_log_http
 
 BUFFER_SIZE = 2048
-TIMEOUT = 1.0
-MAX_TENTATIVAS = 5
+TIMEOUT = 0.3
+MAX_TENTATIVAS = 10
+
+def ler_pacote_seguro(packet):
+    try:
+        return ler_pacote(packet)
+    except (struct.error, IndexError, UnicodeDecodeError):
+        return None
+
+
+def mensagem_ack_valida(data, seq_esperado):
+    try:
+        return data.decode('ascii') == f'ACK:{seq_esperado}'
+    except (UnicodeDecodeError, ValueError):
+        return False
+
 
 def salvar_arquivo_saida(nome_recurso, dados):
     os.makedirs('/app/data/output', exist_ok=True)
@@ -56,9 +71,16 @@ def start_client(cenario='A', recurso='/'):
 
             auth_response, _ = client.recvfrom(1024)
 
-            print('[CLIENTE] Resposta AUTH:', auth_response.decode())
+            try:
+                resposta_auth = auth_response.decode('ascii')
+            except (UnicodeDecodeError, ValueError):
+                tentativas += 1
+                print('[CLIENTE] Resposta AUTH invalida, reenviando')
+                continue
 
-            if auth_response.decode() == 'AUTH-OK':
+            print('[CLIENTE] Resposta AUTH:', resposta_auth)
+
+            if resposta_auth == 'AUTH-OK':
                 auth_recebido = True
 
         except socket.timeout:
@@ -88,13 +110,12 @@ def start_client(cenario='A', recurso='/'):
             print('[CLIENTE] Enviando request')
             client.sendto(packet, (ip_servidor, 6000))
             ack, _ = client.recvfrom(1024)
-            ack_msg = ack.decode()
-            print('[CLIENTE] ACK recebido:', ack_msg)
-            if ack_msg == 'ACK:1':
+            if mensagem_ack_valida(ack, 1):
+                print('[CLIENTE] ACK recebido: ACK:1')
                 ack_recebido = True
             else:
-                print('[CLIENTE] Ignorando mensagem inesperada')
-                continue    
+                tentativas += 1
+                print('[CLIENTE] Ignorando mensagem inesperada no request')
         except socket.timeout:
             tentativas += 1
             print('[CLIENTE] Timeout request')
@@ -110,39 +131,35 @@ def start_client(cenario='A', recurso='/'):
 
 
     timeouts_consecutivos = 0
-    MAX_TIMEOUTS_RESPOSTA = 5
+    MAX_TIMEOUTS_RESPOSTA = 15
     while True:
         try:
-
             packet, _ = client.recvfrom(BUFFER_SIZE)
-
-            timeouts_consecutivos = 0
-
         except socket.timeout:
-
             timeouts_consecutivos += 1
-
-
             print(
-            f'[CLIENTE] Timeout recebendo resposta '
-            f'({timeouts_consecutivos}/{MAX_TIMEOUTS_RESPOSTA})'
+                f'[CLIENTE] Timeout recebendo resposta '
+                f'({timeouts_consecutivos}/{MAX_TIMEOUTS_RESPOSTA})'
             )
-
             if timeouts_consecutivos >= MAX_TIMEOUTS_RESPOSTA:
-
                 print('[CLIENTE] Encerrando por excesso de timeouts')
                 break
-
+            if expected_seq > 1:
+                ultimo_ack = f'ACK:{expected_seq - 1}'
+                client.sendto(ultimo_ack.encode(), (ip_servidor, 6000))
             continue
 
-        seq_num, tamanho, checksum, auth_hash, dados = ler_pacote(packet)
+        parsed = ler_pacote_seguro(packet)
+        if parsed is None:
+            continue
+
+        seq_num, tamanho, checksum, auth_hash, dados = parsed
 
         if auth_hash != AUTH_TOKEN:
             print('[CLIENTE] AUTH invalido no pacote recebido')
             continue
 
         if dados == b'FIN':
-            # envia FIN-ACK
             client.sendto(b'FIN-ACK', (ip_servidor, 6000))
             print('[CLIENTE] FIN recebido, encerrando')
             break
@@ -153,12 +170,12 @@ def start_client(cenario='A', recurso='/'):
             continue
 
         if seq_num == expected_seq:
+            timeouts_consecutivos = 0
             corpo += dados
             ack = f'ACK:{seq_num}'
             client.sendto(ack.encode(), (ip_servidor, 6000))
             expected_seq += 1
-        else:
-            # pacote duplicado ou fora de ordem, reenviar ack do ultimo recebido
+        elif seq_num < expected_seq:
             ack = f'ACK:{seq_num}'
             client.sendto(ack.encode(), (ip_servidor, 6000))
 

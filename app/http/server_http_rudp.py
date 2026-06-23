@@ -1,7 +1,7 @@
 import socket
+import struct
 import sys
 import os
-import time
 
 sys.path.insert(0, '/app')
 
@@ -12,8 +12,8 @@ from app.rudp.rudp import ler_pacote, criar_pacote, calcular_checksum
 HOST = '0.0.0.0'
 PORT = 6000
 BUFFER_SIZE = 2048
-TIMEOUT = 1.0
-MAX_TENTATIVAS = 5
+TIMEOUT = 0.3
+MAX_TENTATIVAS = 10
 WWW_DIR = '/app/data/www'
 
 EXPECTED_AUTH = f"X-Custom-Auth:{gerar_auth(MATRICULA, NOME)}"
@@ -43,14 +43,47 @@ def montar_http_response_bytes(path):
     return headers.encode() + content
 
 
+def processar_mensagem_cliente(sock, data, addr, ack_esperado=None, esperar_fin_ack=False):
+    """
+    Interpreta ACK/FIN-ACK em texto ou pacotes R-UDP (AUTH, FIN).
+    Retorna: 'ACK_OK', 'FIN_ACK_OK', 'AUTH' ou None.
+    """
+    try:
+        msg = data.decode('ascii')
+        if esperar_fin_ack and msg == 'FIN-ACK':
+            return 'FIN_ACK_OK'
+        if ack_esperado is not None and msg == f'ACK:{ack_esperado}':
+            return 'ACK_OK'
+        return None
+    except (UnicodeDecodeError, ValueError):
+        pass
+
+    if len(data) < 16:
+        return None
+
+    try:
+        seq_num, tamanho, checksum, auth_hash, dados = ler_pacote(data)
+    except (struct.error, IndexError, UnicodeDecodeError):
+        return None
+
+    if auth_hash != EXPECTED_AUTH:
+        return None
+
+    if dados == b'AUTH':
+        sock.sendto(b'AUTH-OK', addr)
+        print('[R-HTTP] AUTH recebido durante transferencia, respondendo AUTH-OK')
+        return 'AUTH'
+
+    return None
+
+
 def enviar_com_retransmissoes(sock, addr, auth_token, payload):
     # envia payload em pacotes sequenciais com stop-and-wait
     seq = 1
     offset = 0
-    tamanho = len(payload)
     timeout_anterior = sock.gettimeout()
 
-    while offset < tamanho:
+    while offset < len(payload):
         chunk = payload[offset:offset + 1024]
         packet = criar_pacote(seq_num=seq, dados=chunk, auth_hash=auth_token)
 
@@ -61,14 +94,18 @@ def enviar_com_retransmissoes(sock, addr, auth_token, payload):
             try:
                 sock.sendto(packet, addr)
                 sock.settimeout(TIMEOUT)
-                ack, _ = sock.recvfrom(1024)
-                try:
-                    ack_msg = ack.decode()
-                except UnicodeDecodeError:
-                    print('[R-HTTP] Pacote binario recebido durante espera de ACK')
+                resposta, origem = sock.recvfrom(1024)
+                if origem != addr:
                     continue
-                if ack_msg == f'ACK:{seq}':
+
+                resultado = processar_mensagem_cliente(
+                    sock, resposta, addr, ack_esperado=seq
+                )
+                if resultado == 'ACK_OK':
                     ack_recebido = True
+                elif resultado == 'AUTH':
+                    sock.settimeout(timeout_anterior)
+                    return 'AUTH'
                 else:
                     tentativas += 1
             except socket.timeout:
@@ -82,7 +119,6 @@ def enviar_com_retransmissoes(sock, addr, auth_token, payload):
         seq += 1
         offset += len(chunk)
 
-    # enviar FIN
     fin_packet = criar_pacote(seq_num=seq, dados=b'FIN', auth_hash=auth_token)
     tentativas = 0
     fin_ack = False
@@ -91,14 +127,20 @@ def enviar_com_retransmissoes(sock, addr, auth_token, payload):
         try:
             sock.sendto(fin_packet, addr)
             sock.settimeout(TIMEOUT)
-            ack, _ = sock.recvfrom(1024)
-            try:
-                ack_msg = ack.decode()
-            except UnicodeDecodeError:
-                print('[R-HTTP] Pacote binario recebido durante espera de FIN-ACK')
+            resposta, origem = sock.recvfrom(1024)
+            if origem != addr:
                 continue
-            if ack_msg == 'FIN-ACK':
+
+            resultado = processar_mensagem_cliente(
+                sock, resposta, addr, esperar_fin_ack=True
+            )
+            if resultado == 'FIN_ACK_OK':
                 fin_ack = True
+            elif resultado == 'AUTH':
+                sock.settimeout(timeout_anterior)
+                return 'AUTH'
+            else:
+                tentativas += 1
         except socket.timeout:
             tentativas += 1
 
@@ -151,9 +193,12 @@ def start_server():
         auth_token = auth_hash
         response_bytes = montar_http_response_bytes(path)
 
-        sucesso = enviar_com_retransmissoes(server, addr, auth_token, response_bytes)
+        resultado = enviar_com_retransmissoes(server, addr, auth_token, response_bytes)
 
-        if sucesso:
+        if resultado == 'AUTH':
+            print('[R-HTTP] Transferencia interrompida por novo AUTH')
+            continue
+        if resultado:
             print('[R-HTTP] Resposta enviada para', addr)
         else:
             print('[R-HTTP] Falha ao enviar resposta para', addr)
