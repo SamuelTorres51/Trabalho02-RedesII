@@ -1,0 +1,31 @@
+cenario,recurso,tempo_dns,tempo_total,bytes,throughput,status_http,sucesso
+C,/arquivo_100kb.bin,0.1743,11.9922,102564,8552.54,200 OK,1
+C,/arquivo_500kb.bin,0.1019,66.0031,512164,7759.69,200 OK,1
+C,/arquivo_1mb.bin,0.1023,136.2608,1048741,7696.57,200 OK,1
+C,/arquivo_100kb.bin,0.0,0.0,0,0,ERRO:DNS,0
+C,/arquivo_500kb.bin,0.1021,66.9122,512164,7654.27,200 OK,1
+C,/arquivo_1mb.bin,0.1022,144.0245,1048741,7281.68,200 OK,1
+C,/arquivo_100kb.bin,0.1028,12.5238,102564,8189.52,200 OK,1
+C,/arquivo_500kb.bin,0.1035,71.2213,512164,7191.16,200 OK,1
+C,/arquivo_1mb.bin,0.1024,139.9666,1048741,7492.8,200 OK,1
+C,/arquivo_100kb.bin,0.1039,12.924,102564,7935.92,200 OK,1
+C,/arquivo_500kb.bin,0.0,0.0,0,0,ERRO:DNS,0
+C,/arquivo_1mb.bin,0.1032,148.1085,1048741,7080.9,200 OK,1
+C,/arquivo_100kb.bin,0.1032,13.7267,102564,7471.88,200 OK,1
+C,/arquivo_500kb.bin,0.0,0.0,0,0,ERRO:DNS,0
+C,/arquivo_1mb.bin,0.1027,134.5591,1048741,7793.91,200 OK,1
+C,/arquivo_100kb.bin,0.1051,12.8262,102564,7996.44,200 OK,1
+C,/arquivo_500kb.bin,0.1024,63.831,512164,8023.75,200 OK,1
+C,/arquivo_1mb.bin,0.1041,143.2824,1048741,7319.4,200 OK,1
+C,/arquivo_100kb.bin,0.1037,12.5198,102564,8192.11,200 OK,1
+C,/arquivo_500kb.bin,0.1025,70.8163,512164,7232.29,200 OK,1
+C,/arquivo_1mb.bin,0.0,0.0,0,0,ERRO:DNS,0
+C,/arquivo_100kb.bin,0.0,0.0,0,0,ERRO:DNS,0
+C,/arquivo_500kb.bin,0.1023,67.4531,512164,7592.9,200 OK,1
+C,/arquivo_1mb.bin,0.1044,139.2865,1048741,7529.38,200 OK,1
+C,/arquivo_100kb.bin,0.104,13.1277,102564,7812.81,200 OK,1
+C,/arquivo_500kb.bin,0.1021,68.9376,512164,7429.39,200 OK,1
+C,/arquivo_1mb.bin,0.1045,136.7075,1048741,7671.42,200 OK,1
+C,/arquivo_100kb.bin,0.1025,13.329,102564,7694.8,200 OK,1
+C,/arquivo_500kb.bin,0.0,0.0,0,0,ERRO:DNS,0
+C,/arquivo_1mb.bin,0.1021,137.0249,1048741,7653.65,200 OK,1

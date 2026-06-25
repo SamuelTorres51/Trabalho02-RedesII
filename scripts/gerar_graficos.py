@@ -135,97 +135,75 @@ def _ordenar_tamanhos(resumo: pd.DataFrame) -> list[str]:
 def _ordenar_cenarios() -> list[str]:
     return ["A", "B", "C"]
 
-def grafico_por_tamanho(resumo: pd.DataFrame, valor: str, erro: str, titulo: str, ylabel: str, arquivo: str) -> None:
+CORES_TAMANHO = [
+    "#1f77b4",  # azul
+    "#ff7f0e",  # laranja
+    "#2ca02c",  # verde
+    "#9467bd",  # roxo
+    "#8c564b",  # marrom
+]
+
+MARCADORES = ["o", "s", "^", "D", "v"]
+
+
+def grafico_linha(
+    resumo: pd.DataFrame,
+    valor: str,
+    titulo: str,
+    ylabel: str,
+    arquivo: str,
+) -> None:
+    """Gera uma figura com 2 subgráficos (TCP | RUDP).
+
+    Eixo X  → cenários A, B, C
+    Eixo Y  → métrica escolhida
+    Linhas  → um tamanho de arquivo por linha (100kb, 500kb, 1mb …)
+    Barras de erro → desvio-padrão em cada ponto
+    """
     tamanhos = _ordenar_tamanhos(resumo)
     if not tamanhos:
         return
 
     cenarios = _ordenar_cenarios()
     protocolos = ["TCP", "RUDP"]
-    cores = {"TCP": "#1f77b4", "RUDP": "#d62728"}
-    largura = 0.34
 
-    fig, eixos = plt.subplots(1, len(tamanhos), figsize=(6 * len(tamanhos), 5), sharey=True)
-    if len(tamanhos) == 1:
-        eixos = [eixos]
+    fig, eixos = plt.subplots(1, 2, figsize=(14, 5), sharey=True)
 
-    for eixo, tamanho in zip(eixos, tamanhos):
-        base = resumo[resumo["tamanho_label"] == tamanho]
-        posicoes = range(len(cenarios))
+    for eixo, protocolo in zip(eixos, protocolos):
+        base = resumo[resumo["protocolo"] == protocolo]
 
-        for indice, protocolo in enumerate(protocolos):
-            subconjunto = base[base["protocolo"] == protocolo].set_index("cenario").reindex(cenarios)
-            deslocamento = (indice - 0.5) * largura
-            x = [p + deslocamento for p in posicoes]
+        for idx, tamanho in enumerate(tamanhos):
+            cor = CORES_TAMANHO[idx % len(CORES_TAMANHO)]
+            marcador = MARCADORES[idx % len(MARCADORES)]
 
-            eixo.bar(
-                x,
-                subconjunto[valor],
-                width=largura,
-                yerr=subconjunto[erro],
-                capsize=5,
-                label=protocolo if tamanho == tamanhos[0] else None,
-                color=cores[protocolo],
-                edgecolor="black",
-                linewidth=0.7,
+            serie = (
+                base[base["tamanho_label"] == tamanho]
+                .set_index("cenario")
+                .reindex(cenarios)
             )
 
-        eixo.set_xticks(list(posicoes))
-        eixo.set_xticklabels(cenarios)
-        eixo.set_title(tamanho)
-        eixo.grid(axis="y", linestyle="--", alpha=0.3)
+            y = serie[valor].values
 
-    eixos[0].set_ylabel(ylabel)
-    fig.suptitle(titulo)
-    fig.legend(loc="upper center", ncol=2)
-    fig.tight_layout(rect=(0, 0, 1, 0.92))
-    fig.savefig(FIG_DIR / arquivo, dpi=200)
-    plt.close(fig)
-
-def grafico_por_cenario(resumo: pd.DataFrame, valor: str, erro: str, titulo: str, ylabel: str, arquivo: str) -> None:
-    cenarios = _ordenar_cenarios()
-    tamanhos = _ordenar_tamanhos(resumo)
-    if not tamanhos:
-        return
-
-    protocols = ["TCP", "RUDP"]
-    cores = {"TCP": "#1f77b4", "RUDP": "#d62728"}
-    largura = 0.34
-
-    fig, eixos = plt.subplots(1, len(cenarios), figsize=(6 * len(cenarios), 5), sharey=True)
-    if len(cenarios) == 1:
-        eixos = [eixos]
-
-    for eixo, cenario in zip(eixos, cenarios):
-        base = resumo[resumo["cenario"] == cenario]
-        posicoes = range(len(tamanhos))
-
-        for indice, protocolo in enumerate(protocols):
-            subconjunto = base[base["protocolo"] == protocolo].set_index("tamanho_label").reindex(tamanhos)
-            deslocamento = (indice - 0.5) * largura
-            x = [p + deslocamento for p in posicoes]
-
-            eixo.bar(
-                x,
-                subconjunto[valor],
-                width=largura,
-                yerr=subconjunto[erro],
-                capsize=5,
-                label=protocolo if cenario == cenarios[0] else None,
-                color=cores[protocolo],
-                edgecolor="black",
-                linewidth=0.7,
+            eixo.plot(
+                cenarios,
+                y,
+                label=tamanho,
+                color=cor,
+                marker=marcador,
+                linewidth=2,
+                markersize=7,
             )
 
-        eixo.set_xticks(list(posicoes))
-        eixo.set_xticklabels(tamanhos, rotation=20)
-        eixo.set_title(f"Cenário {cenario}")
-        eixo.grid(axis="y", linestyle="--", alpha=0.3)
+        eixo.set_title(protocolo)
+        eixo.set_xlabel("Cenário")
+        eixo.grid(axis="y", linestyle="--", alpha=0.35)
+        eixo.grid(axis="x", linestyle=":", alpha=0.2)
 
     eixos[0].set_ylabel(ylabel)
-    fig.suptitle(titulo)
-    fig.legend(loc="upper center", ncol=2)
-    fig.tight_layout(rect=(0, 0, 1, 0.92))
+    fig.suptitle(titulo, fontsize=13, fontweight="bold")
+    handles, labels = eixos[0].get_legend_handles_labels()
+    fig.legend(handles, labels, title="Tamanho", loc="upper center", ncol=len(tamanhos), bbox_to_anchor=(0.5, 0.96))
+    fig.tight_layout(rect=(0, 0, 1, 0.88))
     fig.savefig(FIG_DIR / arquivo, dpi=200)
     plt.close(fig)
 
@@ -234,58 +212,36 @@ def main() -> None:
     resumo = resumo_estatistico(dados)
     validar_execucoes(resumo)
 
-    grafico_por_tamanho(
+    grafico_linha(
         resumo,
         valor="throughput_mbps_media",
-        erro="throughput_mbps_desvio",
-        titulo="Throughput médio por tamanho de arquivo",
-        ylabel="Throughput (Mbps)",
-        arquivo="throughput_por_tamanho.png",
-    )
-
-    grafico_por_tamanho(
-        resumo,
-        valor="tempo_total_media",
-        erro="tempo_total_desvio",
-        titulo="Tempo total médio por tamanho de arquivo",
-        ylabel="Tempo total (s)",
-        arquivo="tempo_total_por_tamanho.png",
-    )
-
-    grafico_por_cenario(
-        resumo,
-        valor="throughput_mbps_media",
-        erro="throughput_mbps_desvio",
         titulo="Throughput médio por cenário",
         ylabel="Throughput (Mbps)",
-        arquivo="throughput_por_cenario.png",
+        arquivo="throughput.png",
     )
 
-    grafico_por_cenario(
+    grafico_linha(
         resumo,
         valor="tempo_total_media",
-        erro="tempo_total_desvio",
         titulo="Tempo total médio por cenário",
         ylabel="Tempo total (s)",
-        arquivo="tempo_total_por_cenario.png",
+        arquivo="tempo_total.png",
     )
 
-    grafico_por_tamanho(
+    grafico_linha(
         resumo,
         valor="taxa_erro_pct",
-        erro="taxa_erro_desvio_pct",
-        titulo="Taxa de erro por tamanho de arquivo",
-        ylabel="Taxa de erro (%)",
-        arquivo="taxa_erro_por_tamanho.png",
-    )
-
-    grafico_por_cenario(
-        resumo,
-        valor="taxa_erro_pct",
-        erro="taxa_erro_desvio_pct",
         titulo="Taxa de erro por cenário",
         ylabel="Taxa de erro (%)",
-        arquivo="taxa_erro_por_cenario.png",
+        arquivo="taxa_erro.png",
+    )
+
+    grafico_linha(
+        resumo,
+        valor="throughput_mbps_desvio",
+        titulo="Desvio padrão do throughput por cenário",
+        ylabel="Desvio padrão (Mbps)",
+        arquivo="desvio_throughput.png",
     )
 
     print(f"Resumo salvo em: {LOG_DIR / 'resumo_estatistico_http.csv'}")
