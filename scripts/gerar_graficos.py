@@ -244,6 +244,14 @@ def main() -> None:
         arquivo="desvio_throughput.png",
     )
 
+    grafico_linha(
+        resumo,
+        valor="tempo_dns_media",
+        titulo="Tempo médio de DNS por cenário",
+        ylabel="Tempo DNS (s)",
+        arquivo="tempo_dns.png",
+    )
+
     print(f"Resumo salvo em: {LOG_DIR / 'resumo_estatistico_http.csv'}")
     print(f"Gráficos salvos em: {FIG_DIR}")
 
