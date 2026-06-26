@@ -1,101 +1,233 @@
-# Transferência de Arquivos via TCP e R-UDP
+# Implementação de Serviços DNS e HTTP Utilizando TCP e Reliable UDP
 
 # Aluno
+
 Nome: Samuel Torres Vieira da Silva
 
 # Matrícula
+
 20249014475
 
 # Link do Vídeo de Demonstração
-Video Demonstrativo: [https://youtu.be/r6EpT9WJErY]
+
+Vídeo Demonstrativo: [https://youtu.be/y74of4To_3c]
 
 # Link do GitHub
-Repositório: [https://github.com/SamuelTorres51/Trabalho01-RedesII]
+
+Repositório: [https://github.com/SamuelTorres51/Trabalho02-RedesII]
 
 # Descrição do Projeto
-Este projeto foi desenvolvido para a disciplina de Redes II com o objetivo de comparar a transferência de arquivos por dois protocolos de comunicação: TCP e um protocolo confiável sobre UDP, denominado R-UDP.
 
-A implementação simula o envio de um arquivo binário entre cliente e servidor em ambiente conteinerizado, sob diferentes condições de rede. O trabalho permite observar, na prática, o impacto de perda e atraso no desempenho das transferências, além de registrar métricas, gerar logs, produzir gráficos e capturar tráfego para análise posterior.
+Este projeto foi desenvolvido para a disciplina de Redes II com o objetivo de implementar e avaliar uma arquitetura de rede composta por um serviço DNS e um serviço HTTP utilizando dois protocolos de transporte distintos: TCP e Reliable UDP (R-UDP).
+
+O sistema realiza a resolução de nomes através de um servidor DNS próprio e, em seguida, executa requisições HTTP para obtenção de arquivos estáticos hospedados em um servidor Web. Os experimentos são executados em ambiente conteinerizado sob diferentes condições de rede simuladas, permitindo comparar o comportamento dos protocolos diante de atraso e perda de pacotes.
 
 O projeto contempla:
 
-- Transferência de arquivos via TCP.
-- Transferência de arquivos via Reliable UDP (R-UDP).
-- Comparação entre os protocolos com base em tempo de transferência e throughput.
-- Simulação de condições adversas de rede com `tc qdisc netem`.
-- Coleta de métricas de desempenho em arquivos CSV.
+* Implementação de um servidor DNS customizado.
+* Implementação de HTTP/1.1 sobre TCP.
+* Implementação de HTTP/1.1 sobre Reliable UDP (R-UDP).
+* Resolução de nomes antes das requisições HTTP.
+* Simulação de cenários de rede com atraso e perda de pacotes.
+* Coleta de métricas de desempenho.
+* Captura e análise de tráfego utilizando tcpdump e Wireshark.
 
 # Funcionalidades Implementadas
-- Cliente TCP para envio de arquivo em blocos.
-- Servidor TCP para recepção e gravação do arquivo.
-- Cliente R-UDP com envio confiável por sequência, timeout e retransmissão.
-- Servidor R-UDP com validação de sequência, checksum e autenticação.
-- ACKs para confirmação de recebimento.
-- Numeração de sequência nos pacotes R-UDP.
-- Timeout no cliente R-UDP com novas tentativas de envio.
-- Retransmissão automática em caso de ausência de ACK.
-- Checksum calculado com `crc32` para validação de integridade.
-- `X-Custom-Auth` para autenticação das mensagens.
-- Registro de métricas de tempo, bytes e throughput em CSV.
-- Geração de logs por cenário e por protocolo.
-- Captura de tráfego com `tcpdump` em arquivos `.pcap`.
-- Automação dos testes com script shell que aplica cenário, inicia captura e executa cliente e servidor.
+
+## DNS
+
+* Servidor DNS baseado em UDP.
+* Resolução de nomes para os servidores HTTP.
+* Cliente DNS com timeout e retransmissão.
+* Registro do tempo de resolução DNS.
+
+## HTTP sobre TCP
+
+* Requisições GET.
+* Transferência de arquivos estáticos.
+* Respostas HTTP 200 OK.
+* Respostas HTTP 404 Not Found.
+* Inclusão do cabeçalho personalizado X-Custom-Auth.
+
+## HTTP sobre R-UDP
+
+* Requisições GET.
+* Autenticação inicial AUTH/AUTH-OK.
+* Transferência confiável utilizando Stop-and-Wait.
+* Numeração de sequência.
+* ACKs de confirmação.
+* Timeout e retransmissão.
+* Checksum para validação de integridade.
+* Mensagem FIN para encerramento da transferência.
+* Campo X-Custom-Auth nos pacotes.
+
+## Coleta de Dados
+
+* Registro automático de métricas em CSV.
+* Geração de estatísticas para análise posterior.
+* Captura de tráfego em arquivos .pcap.
+* Automação dos testes por cenário.
 
 # Tecnologias Utilizadas
-- Python 3.
-- Docker.
-- Docker Compose.
-- Bash.
-- `tc qdisc netem` para emulação de atraso e perda.
-- `tcpdump` para captura de pacotes.
-- Wireshark para análise dos arquivos `.pcap`.
-- Bibliotecas da biblioteca padrão do Python utilizadas no código:
-  - `socket`
-  - `time`
-  - `csv`
-  - `os`
-  - `sys`
-  - `struct`
-  - `zlib`
-  - `hashlib`
-  - `pathlib`
-  - `re`
-- Bibliotecas Python de terceiros listadas em `requirements.txt`:
-  - `pandas`
-  - `matplotlib`
+
+* Python 3
+* Docker
+* Docker Compose
+* Bash
+* tc qdisc netem
+* tcpdump
+* Wireshark
+
+## Bibliotecas da biblioteca padrão do Python
+
+* socket
+* time
+* csv
+* os
+* sys
+* struct
+* hashlib
+* pathlib
+* zlib
+
+## Bibliotecas de terceiros
+
+* pandas
+* matplotlib
 
 # Estrutura do Projeto
+
 ```text
 .
 ├── app/
 │   ├── common/
-│   │   ├── config.py          # Constantes compartilhadas, como host, porta, buffer e dados do aluno.
-│   │   └── utils.py           # Função para gerar a autenticação SHA-256.
-│   ├── tcp/
-│   │   ├── client_tcp.py      # Cliente TCP com autenticação, envio do arquivo e registro de métricas.
-│   │   └── server_tcp.py      # Servidor TCP com parsing de mensagens e gravação do arquivo recebido.
-│   └── rudp/
-│       ├── rudp.py            # Estrutura do pacote R-UDP, checksum e leitura de pacotes.
-│       ├── client_rudp.py     # Cliente R-UDP com ACK, timeout, retransmissão e finalização.
-│       └── server_rudp.py     # Servidor R-UDP com validação de autenticação, integridade e sequência.
+│   │   ├── config.py
+│   │   ├── utils.py
+│   │
+│   ├── dns/
+│   │   ├── client_dns.py
+|   |   ├── protocol.py
+│   │   └── server_dns.py
+│   │
+│   ├── http/
+│   │   ├── client_http.py
+│   │   ├── client_http_tcp.py
+│   │   ├── client_http_rudp.py
+│   │   ├── server_http_tcp.py
+│   │   ├── server_http_rudp.py
+|   |   ├── server_http.py
+│   │   └── metrics.py
+│   │
+│   ├── rudp/
+|   └── tcp/   
+│
 ├── data/
-│   ├── input/                 # Arquivo de entrada usado no envio.
-│   ├── output/                # Arquivos recebidos pelos servidores.
-│   ├── logs/                  # CSVs gerados nas execuções e resumo estatístico.
-│   ├── pcap/                  # Capturas de tráfego geradas pelo tcpdump.
-│   └── graficos/              # Gráficos gerados a partir dos CSVs.
-├── docker/
-│   ├── Dockerfile             # Imagem com Python e ferramentas de rede.
-│   └── docker-compose.yml     # Serviços `servidor` e `cliente` na rede `rede-teste`.
+|   ├── dns/
+|   |   └── hosts.txt
+|   ├── graficos/
+│   ├── logs/
+│   ├── output/
+│   ├── pcap/
+│   └── www/
+│
 ├── scripts/
-│   ├── setup_tc.sh            # Aplica os cenários de rede com `tc qdisc netem`.
-│   ├── run_tests.sh           # Automatiza cenários, captura e execuções repetidas.
-│   └── gerar_graficos.py      # Consolida CSVs e gera o resumo estatístico e os gráficos.
-├── requirements.txt           # Dependências Python de análise e geração de gráficos.
-└── README.md                  # Documentação do projeto.
+│   ├── gerar_graficos.py
+│   ├── setup_tc.sh
+│   └── run_tests.sh
+│
+├── docker/
+│   ├── docker-compose.yml
+│   └── Dockerfile
+|
+├── requirements.txt
+└── README.md
 ```
 
-# Como Executar o Projeto
+# Arquitetura do Sistema
+
+O ambiente é composto por três contêineres principais:
+
+* Cliente
+* Servidor DNS
+* Servidor Web
+
+Fluxo da comunicação:
+
+```text
+Cliente
+   │
+   ├── Consulta DNS
+   ▼
+Servidor DNS
+   │
+   └── Retorna endereço IP
+   ▼
+Cliente
+   │
+   ├── HTTP/TCP ou HTTP/R-UDP
+   ▼
+Servidor Web
+   │
+   └── Retorna arquivo solicitado
+```
+
+# Arquivos Utilizados nos Testes
+
+Foram utilizados três arquivos estáticos para avaliação:
+
+| Arquivo           | Tamanho |
+| ----------------- | ------- |
+| arquivo_100kb.bin | 100 KB  |
+| arquivo_500kb.bin | 500 KB  |
+| arquivo_1mb.bin   | 1 MB    |
+
+# Cenários de Teste
+
+## Cenário A
+
+* Perda: 0%
+* Atraso: 10 ms
+
+## Cenário B
+
+* Perda: 5%
+* Atraso: 50 ms
+
+## Cenário C
+
+* Perda: 10%
+* Atraso: 100 ms
+
+As condições são aplicadas utilizando:
+
+```bash
+tc qdisc add dev eth0 root netem delay Xms loss Y%
+```
+
+# Métricas Coletadas
+
+Durante os testes são registradas as seguintes métricas:
+
+* Tempo de resolução DNS
+* Tempo total de transferência
+* Quantidade de bytes recebidos
+* Throughput
+* Taxa de erro
+* Média
+* Desvio padrão
+* Valor mínimo
+* Valor máximo
+
+# Formato dos Logs
+
+Exemplo:
+
+```csv
+cenario,recurso,tempo_dns,tempo_total,bytes,throughput,status_http
+A,/arquivo_100kb.bin,0.0512,0.8345,102564,122901.25,200 OK
+```
+
+# Execução dos Testes
 
 ## Pré-requisitos
 - Docker instalado.
@@ -109,137 +241,93 @@ git clone <URL_DO_REPOSITORIO>
 cd <NOME_DO_REPOSITORIO>
 ```
 
-## Construindo os Containers
-O projeto usa os arquivos `docker/Dockerfile` e `docker/docker-compose.yml` para montar os contêineres `servidor` e `cliente`.
-
 A partir da pasta `docker/`, construa a imagem com Docker Compose.
 
 ```bash
 cd docker
 docker compose build
-```
 
-## Iniciando o Ambiente
-Depois de construir as imagens, inicie os serviços definidos no Compose.
+Subir os contêineres:
 
 ```bash
 docker compose up -d
 ```
 
-Os serviços ficam conectados à rede `rede-teste`, com acesso ao diretório do projeto montado em `/app` dentro de cada contêiner.
+Executar testes:
 
-## Executando o Servidor
-O servidor pode ser iniciado manualmente dentro do contêiner `servidor` ou de forma automatizada pelo script de testes.
-
-TCP:
-```bash
-docker compose exec servidor bash -c "cd /app && python3 app/tcp/server_tcp.py"
 ```
-
-R-UDP:
-```bash
-docker compose exec servidor bash -c "cd /app && python3 app/rudp/server_rudp.py"
-```
-
-## Executando o Cliente
-O cliente deve ser iniciado dentro do contêiner `cliente` e recebe o cenário como argumento.
-
-TCP:
-```bash
-docker compose exec cliente bash -c "cd /app && python3 app/tcp/client_tcp.py A"
-```
-
-R-UDP:
-```bash
-docker compose exec cliente bash -c "cd /app && python3 app/rudp/client_rudp.py A"
-```
-
-Substitua `A` por `B` ou `C` para executar os demais cenários.
-
-## Automação dos Testes
-O script `scripts/run_tests.sh` automatiza a coleta de resultados para um protocolo, um cenário e uma quantidade de repetições.
-
-O fluxo executado pelo script é:
-
-- Aplica o cenário de rede no contêiner `cliente` com `scripts/setup_tc.sh`.
-- Inicia o `tcpdump` no contêiner `servidor`.
-- Inicia o servidor do protocolo escolhido.
-- Executa o cliente com o cenário informado.
-- Encerra o servidor e, ao final, finaliza o `tcpdump`.
-
-Exemplo de uso:
-
-```bash
-cd docker
 bash ../scripts/run_tests.sh tcp A 10
+```
+
+ou
+
+```
 bash ../scripts/run_tests.sh rudp B 10
 ```
 
-O primeiro argumento define o protocolo (`tcp` ou `rudp`), o segundo define o cenário (`A`, `B` ou `C`) e o terceiro define o número de repetições.
+Parâmetros:
 
-# Cenários de Teste
-Os cenários são aplicados ao contêiner cliente por meio do script `scripts/setup_tc.sh`, que limpa regras antigas e adiciona uma regra `netem` na interface `eth0`.
-
-- Cenário A: 0% de perda e 10 ms de atraso.
-- Cenário B: 5% de perda e 50 ms de atraso.
-- Cenário C: 10% de perda e 100 ms de atraso.
-
-Esse mecanismo permite reproduzir condições mais ou menos adversas e observar o impacto direto no tempo total e no throughput obtido por cada protocolo.
-
-# Coleta de Resultados
-Os resultados de cada execução são gravados pelos clientes em arquivos CSV dentro de `data/logs/`.
-
-## Onde os logs são gerados
-- TCP: `data/logs/tcp_cenario_A.csv`, `data/logs/tcp_cenario_B.csv`, `data/logs/tcp_cenario_C.csv`.
-- R-UDP: `data/logs/rudp_cenario_A.csv`, `data/logs/rudp_cenario_B.csv`, `data/logs/rudp_cenario_C.csv`.
-
-## Formato dos arquivos CSV
-Cada linha registra:
-- `tempo`: tempo total da transferência em segundos.
-- `bytes`: quantidade de bytes enviados.
-- `throughput`: vazão calculada em bytes por segundo.
-- `cenario`: cenário executado.
-
-## Métricas registradas
-- Tempo total de transferência.
-- Quantidade de bytes transferidos.
-- Throughput em bytes por segundo.
-
-## Como interpretar os resultados
-- Menor tempo de transferência indica melhor desempenho.
-- Maior throughput indica maior eficiência na entrega dos dados.
-- O desvio padrão mostra a variabilidade entre as repetições de um mesmo cenário.
-
-O script `scripts/gerar_graficos.py` consolida os CSVs, gera `data/logs/resumo_estatistico.csv` e produz gráficos em `data/graficos/`.
+* tcp ou rudp
+* cenário A, B ou C
+* número de repetições
 
 # Captura de Tráfego
-A captura de tráfego é feita com `tcpdump` no contêiner `servidor`, e o arquivo `.pcap` é gravado em `data/pcap/` com o nome do protocolo e do cenário.
 
-O script de automação usa o comando equivalente a:
+As capturas são realizadas automaticamente utilizando tcpdump.
+
+Exemplo:
 
 ```bash
-tcpdump -i eth0 -w /app/data/pcap/<arquivo>.pcap
+tcpdump -i eth0 -w tcp_cenario_A.pcap
 ```
 
-Os arquivos podem ser abertos no Wireshark para análise visual do tráfego.
+Os arquivos gerados são armazenados em:
 
-## Como localizar o campo X-Custom-Auth
-O campo aparece no conteúdo da aplicação:
+```text
+data/pcap/
+```
 
-- No TCP, ele é enviado como cabeçalho textual `X-Custom-Auth`.
-- No R-UDP, ele faz parte do cabeçalho do pacote junto com os demais metadados.
+e podem ser analisados posteriormente utilizando o Wireshark.
 
-Para encontrá-lo, abra o pacote no Wireshark e verifique os dados da aplicação ou o conteúdo bruto do pacote.
+# Cabeçalho de Autenticação
 
-# Resultados Obtidos
-As análises do projeto comparam, para cada protocolo e cenário:
+Todas as respostas HTTP incluem o cabeçalho:
 
-- Tempo de transferência.
-- Throughput.
-- Média das execuções.
-- Desvio padrão das execuções.
+```http
+X-Custom-Auth: <hash>
+```
 
-Os gráficos e o resumo estatístico permitem comparar o comportamento do TCP e do R-UDP sob diferentes níveis de atraso e perda, destacando a estabilidade e a variação de desempenho entre repetições.
+O valor é gerado a partir da matrícula e do nome do aluno utilizando função hash definida no projeto.
+
+# Resultados Esperados
+
+Espera-se observar:
+
+* Aumento do tempo de transferência conforme cresce a perda de pacotes.
+* Redução do throughput em cenários degradados.
+* Maior estabilidade do TCP em cenários com perda.
+* Maior impacto das retransmissões no protocolo R-UDP.
+* Pequena influência da perda no tempo de resolução DNS.
+* Funcionamento correto do serviço HTTP em ambos os protocolos.
+
+# Ferramentas de Validação
+
+As seguintes ferramentas foram utilizadas para validação dos experimentos:
+
+* Wireshark
+* tcpdump
+* Docker Logs
+* Arquivos CSV gerados automaticamente
+
+As capturas permitiram verificar:
+
+* Consultas DNS.
+* Handshake TCP.
+* Requisições HTTP.
+* Respostas HTTP.
+* Presença do cabeçalho X-Custom-Auth.
+* Fluxo de comunicação do protocolo R-UDP.
 
 # Considerações Finais
-O projeto demonstra, de forma prática, como dois protocolos se comportam durante a transferência de arquivos sob condições de rede controladas. A solução inclui autenticação, controle de integridade, automação de testes, captura de tráfego e geração de métricas, oferecendo uma base sólida para análise comparativa entre TCP e R-UDP.
+
+O projeto permitiu implementar na prática serviços de aplicação sobre diferentes protocolos de transporte, avaliando o impacto de atraso e perda de pacotes sobre o desempenho da comunicação. Além disso, possibilitou compreender os mecanismos de confiabilidade do TCP e os desafios envolvidos na construção de um protocolo confiável sobre UDP.
